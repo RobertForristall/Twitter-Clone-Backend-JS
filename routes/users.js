@@ -57,8 +57,10 @@ router.route('/login').post((req, res) => {
         if (results[0] === undefined) return res.status(400).json('Invalid Login Credentials! Please try again.')
 
         token = jwt.sign({data: req.body.email}, process.env.SECRET_KEY, {expiresIn: '1h'})
+        refresh_token = jwt.sign({data: req.body.email}, process.env.REFRESH_KEY, {expiresIn: '1d'})
 
         res.set('Content-Type', 'application/json')
+        res.cookie('jwt', refresh_token, {httpOnly: true, sameSite: 'None', secure: true, maxAge: 24*60*60*1000})
         res.json({
             token: token,
             email: req.body.email,
