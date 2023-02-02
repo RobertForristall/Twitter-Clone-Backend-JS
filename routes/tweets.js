@@ -8,6 +8,7 @@ router.route('/:id').get(fun.AuthenticateToken, (req, res) => {
     query_string = `
     select T.*, U.email from Tweets T, Users U where U.user_id=T.user_id;
     select tweet_id from Likes where user_id=${req.params.id};
+    select tweet_id from Retweets where user_id=${req.params.id};
     `
 
     db.query(query_string, (err, results, fields) => {
@@ -16,7 +17,6 @@ router.route('/:id').get(fun.AuthenticateToken, (req, res) => {
             return res.status(400).json(err)
         }
 
-        console.log(results)
         res.set('Content-Type', 'application/json')
         res.json(results)
     })
@@ -120,6 +120,26 @@ router.route('/like/add').put(fun.AuthenticateToken, (req, res) => {
             res.set('Content-Type', 'application/json')
             res.json('Like Counted!') 
         }
+    })
+
+})
+
+router.route('/retweet/add').post(fun.AuthenticateToken, (req, res) => {
+
+    query_string = `
+    ${fun.queryInsertGenerator(req.body.retweet, 'Retweets')}
+    update Tweets set retweets=retweets+1 where tweet_id=${req.body.retweet.tweet_id};
+    ${fun.queryInsertGenerator(req.body.tweet, 'Tweets')}
+    `
+
+    db.query(query_string, (err, results, fields) => {
+        if (err){
+            console.log(err)
+            return res.status(400).json(err)
+        }
+
+        res.set('Content-Type', 'application/json')
+        res.json('Retweeted!')
     })
 
 })
