@@ -3,6 +3,8 @@ var router = express.Router()
 const db = require('../db_connection')
 const jwt = require('jsonwebtoken')
 const fun = require('../functions')
+const s3 = require('../bucket_connection')
+const upload = require('../app')
 
 router.route('/:id').get(fun.AuthenticateToken, (req, res) => {
     query_string = `
@@ -33,12 +35,12 @@ router.route('/add').post(fun.AuthenticateToken, (req, res) => {
         }
     })
 
-    query_string_test = fun.queryInsertGenerator(req.body.tweet, "Tweets")
-    console.log(query_string_test)
+    query_string = fun.queryInsertGenerator(req.body.tweet, "Tweets")
+    console.log(query_string)
 
     //console.log(query_string)
 
-    db.query(query_string_test, (err, results, fields) => {
+    db.query(query_string, (err, results, fields) => {
         if (err) {
             console.log(err)
             return res.status(400).json(err)
@@ -142,6 +144,25 @@ router.route('/retweet/add').post(fun.AuthenticateToken, (req, res) => {
         res.json('Retweeted!')
     })
 
+})
+
+router.route('/image/add').post(fun.AuthenticateToken,  (req, res) => {
+    console.log(req.files[0])
+    console.log(req.body)
+    params = {
+        Bucket: process.env.BUCKET_NAME,
+        Body: req.files[0].buffer,
+        Key: `T${req.body.user_id}+I${req.files[0].originalname}`
+    }
+
+    s3.upload(params, (err, data) => {
+        if (err) console.log(err)
+        if (data) {
+            console.log("Success!")
+            res.set('Content-Type', 'application/json')
+            res.json(params.Key)
+        }
+    })
 })
 
 module.exports = router
