@@ -13,21 +13,32 @@ router.route('/:id').get(fun.AuthenticateToken, (req, res) => {
     select tweet_id from Retweets where user_id=${req.params.id};
     `
 
-    db.query(query_string, (err, results, fields) => {
+    db.query(query_string, async (err, results, fields) => {
         if (err){
             console.log(err)
             return res.status(400).json(err)
         }
 
+        //res.set('Content-Type', 'application/json')
+        //res.json(return_arr)
+        
+        console.log("Checking for images...")
+        let images = await fun.getImages(results[0])
+        images.index_arr.forEach((tweet_index, image_index) => {
+            results[0][tweet_index] = {...results[0][tweet_index], image: images.image_arr[image_index]}
+        })
+        console.log("Done getting images...")
+        
         res.set('Content-Type', 'application/json')
         res.json(results)
     })
+
 })
 
 router.route('/add').post(fun.AuthenticateToken, (req, res) => {
 
     Object.keys(req.body.tweet).forEach(key => {
-        if (typeof(req.body.tweet[key]) == typeof('') && req.body.tweet[key].length === 0 && key !== 'msg'){
+        if (typeof(req.body.tweet[key]) == typeof('') && req.body.tweet[key].length === 0 && key !== 'msg' && key !== 'fileKey'){
             return res.status(400).json(`Error: ${String.toString(key)} field is empty...`)
         }
         if (typeof(req.body.tweet[key]) == typeof(0) && req.body.tweet[key] < 0){
@@ -46,7 +57,7 @@ router.route('/add').post(fun.AuthenticateToken, (req, res) => {
             return res.status(400).json(err)
         }
 
-        res.set("Content-Type", 'application/json')
+        //res.set("Content-Type", 'application/json')
         res.json("Tweet Added!")
     })
 })
