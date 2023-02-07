@@ -5,15 +5,15 @@ const jwt = require('jsonwebtoken')
 const sha256 = require('crypto-js').SHA256
 const funs = require('../functions')
 
-router.route('/signup').post((req, res) => {
+router.route('/signup').post((req, res, next) => {
 
     Object.keys(req.body).forEach(key => {
         if (typeof(req.body[key]) === typeof('') && req.body[key].length === 0){
-            return res.status(400).json(`Error: ${String.toString(key)} field is missing.`)
+            return res.send(400, {msg: `Error: ${String.toString(key)} field is missing.`})
         }
     })
 
-    if (req.body.is_verified !== true) return res.status(400).json('Error: User did not verify email address')
+    if (req.body.is_verified !== true) return res.sendStatus(400).json('Error: User did not verify email address')
     
     query_string = `
         insert into Users (email, name, dob, is_verified, pass)
@@ -27,7 +27,7 @@ router.route('/signup').post((req, res) => {
         }
 
         res.set('Content-Type', 'application/json')
-        res.json("User added!")
+        res.json('User Added!')
     })
 
 })
@@ -73,6 +73,17 @@ router.route('/login').post((req, res) => {
 
     })
 
+})
+
+router.route('/delete/:id').delete((req, res) => {
+    query_string = `delete from Users where user_id=${req.params.id};`
+
+    db.query(query_string, (err, results, fields) => {
+        if (err) console.log(err)
+
+        res.set('Content-Type', 'application/json')
+        res.json('User deleted')
+    })
 })
 
 module.exports = router

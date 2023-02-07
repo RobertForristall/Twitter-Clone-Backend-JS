@@ -158,22 +158,39 @@ router.route('/retweet/add').post(fun.AuthenticateToken, (req, res) => {
 })
 
 router.route('/image/add').post(fun.AuthenticateToken,  (req, res) => {
-    console.log(req.files[0])
-    console.log(req.body)
+    
     params = {
         Bucket: process.env.BUCKET_NAME,
         Body: req.files[0].buffer,
-        Key: `T${req.body.user_id}+I${req.files[0].originalname}`
+        Key: `user_${req.body.user_id}/images/${req.files[0].originalname}`
     }
 
     s3.upload(params, (err, data) => {
         if (err) console.log(err)
         if (data) {
-            console.log("Success!")
+            console.log("Success, Image added!")
             res.set('Content-Type', 'application/json')
             res.json(params.Key)
         }
     })
+})
+
+router.route('image/delete/:id/:file_name').delete(fun.AuthenticateToken, (req, res) => {
+
+    params = {
+        Bucket: process.env.BUCKET_NAME,
+        Key: `user_${req.params.id}/images/${req.params.file_name}`
+    }
+
+    s3.deleteObject(params, (err, data) => {
+        if (err) console.log(err)
+        if (data) {
+            console.log("Success, Image deleted")
+            res.set('Content-Type', 'application/json')
+            res.json('Image deleted')
+        }
+    })
+
 })
 
 module.exports = router

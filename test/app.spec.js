@@ -6,19 +6,90 @@ const sha256 = require('js-sha256')
 const pass = "Secure123$"
 
 let test_user_signup = {
+    user_id: 99999,
     email: "supertest@test.com",
     name: "Super Tester",
     dob: new Date().toISOString().substring(0,10),
     is_verified: true,
-    pass: sha256(pass).hex(),
+    pass: sha256.sha256.create().update(pass).hex()
 }
 
 let test_user_login = {
     email: test_user_signup.email,
-    pass: sha256(pass).hex()
+    pass: sha256.sha256.create().update(pass).hex()
 }
 
+let user_delete_id = -1
+
 console.log(test_user_login.pass)
+
+describe('Post /users/signup', () => {
+
+    it('Returns that the user was successfully added', done => {
+        request(app)
+            .post('/users/signup')
+            .send(test_user_signup)
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .expect(200)
+            .end((err, res) => {
+                if (err) return done(err)
+                return done()
+            })
+    })
+
+    it('Returns that the email field was empty', done => {
+        request(app)
+            .post('/users/signup')
+            .send({...test_user_signup, email: ""})
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .expect(400)
+            .end((err, res) => {
+                if (err) return done(err)
+                return done()
+            })
+    })
+
+    it('Returns that the pass field was empty', done => {
+        request(app)
+            .post('/users/signup')
+            .send({...test_user_signup, pass: ""})
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .expect(400)
+            .end((err, res) => {
+                if (err) return done(err)
+                return done()
+            })
+    })
+
+    it('Returns that the name field was empty', done => {
+        request(app)
+            .post('/users/signup')
+            .send({...test_user_signup, name: ""})
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .expect(400)
+            .end((err, res) => {
+                if (err) return done(err)
+                return done()
+            })
+    })
+
+    it('Returns that the dob field was empty', done => {
+        request(app)
+            .post('/users/signup')
+            .send({...test_user_signup, dob: ""})
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .expect(400)
+            .end((err, res) => {
+                if (err) return done(err)
+                return done()
+            })
+    })
+})
 
 describe('POST /users/login', () => {
 
@@ -31,7 +102,7 @@ describe('POST /users/login', () => {
             .expect(200)
             .end((err, res) => {
                 if (err) return done(err)
-                console.log(res)
+                user_delete_id = res.body.user_id
                 return done()
             })
     })
@@ -89,12 +160,11 @@ describe('POST /users/login', () => {
     })
 })
 
-describe('Post /users/signup', () => {
+describe('DELETE /users/delete', () => {
 
-    it('Returns that the user was successfully added', done => {
+    it('Returns that the user was successfully deleted', done => {
         request(app)
-            .post('/users/signup')
-            .send(test_user_signup)
+            .delete(`/users/delete/${user_delete_id}`)
             .set('Accept', 'application/json')
             .expect('Content-Type', /json/)
             .expect(200)
@@ -105,4 +175,6 @@ describe('Post /users/signup', () => {
     })
 })
 
-
+describe('GET /images/:id', () => {
+    
+})
