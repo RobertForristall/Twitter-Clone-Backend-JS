@@ -4,6 +4,8 @@ const nodemailer = require('nodemailer')
 
 const s3 = require('./bucket_connection')
 
+const db = require('./db_connection')
+
 function AuthenticateToken(req, res, next) {
 
     const authHeader = req.headers['authorization']
@@ -42,8 +44,10 @@ function generateValuesStr (object) {
 
 function queryInsertGenerator (object, table_name) {
     keys = Object.keys(object)
-    return `insert into ${table_name} (${keys.join()}) 
-    values (${generateValuesStr(object).join()});`
+    return `
+    insert into ${table_name} (${keys.join(', ')}) 
+    values (${generateValuesStr(object).join(', ')});
+    `
 
 }
 
@@ -52,7 +56,6 @@ function queryUpdateGenerator (object, table_name) {
 }
 
 async function getImages(data) {
-    console.log('Checking for images')
 
     let rv = {
         image_arr: [],
@@ -82,8 +85,255 @@ async function getImages(data) {
     return rv
 }
 
+function addRetweet(retweet) {
+    return new Promise((resolve, reject) => {
+        query_string = `
+        ${queryInsertGenerator(retweet, 'Retweets')}
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+        
+    })
+}
+
+function updateRetweetCounter(tweet_id) {
+
+    return new Promise ((resolve, reject) => {
+        query_string = `
+        update Tweets set retweets=retweets+1 where tweet_id=${tweet_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function insertTweet(tweet) {
+
+    return new Promise((resolve, reject) => {
+        query_string = `
+        ${queryInsertGenerator(tweet, 'Tweets')}
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function getTweetsWithEmail() {
+
+    return new Promise((resolve, reject) => {
+        query_string = `
+        select T.*, U.email from Tweets T, Users U where U.user_id=T.user_id;
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function getLikesForUser(user_id) {
+
+    return new Promise((resolve, reject) => {
+        query_string = `
+        select tweet_id from Likes where user_id=${user_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function getRetweetsForUser(user_id) {
+
+    return new Promise((resolve, reject) => {
+        query_string = `
+        select tweet_id from Retweets where user_id=${user_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function incrementTweetLike(tweet_id){
+    return new Promise((resolve, reject) => {
+        query_string=`
+        update Tweets set likes=likes+1 where tweet_id=${tweet_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function decrementTweetLike(tweet_id){
+    return new Promise((resolve, reject) => {
+        query_string=`
+        update Tweets set likes=likes-1 where tweet_id=${tweet_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function insertLike(like_object) {
+    return new Promise((resolve, reject) => {
+        query_string=`
+        ${queryInsertGenerator(like_object, "Likes")}
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function deleteLike(like_object) {
+    return new Promise((resolve, reject) => {
+        query_string=`
+        delete from Likes where tweet_id=${like_object.tweet_id} and user_id=${like_object.user_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err) {
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function deleteRetweetedTweet(tweet_id, user_id) {
+
+    return new Promise((resolve, reject) => {
+        
+        query_string = `
+        delete from Tweets where tweet_id=${tweet_id} and user_id=${user_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function deleteRetweet(tweet_id, user_id) {
+
+    return new Promise((resolve, reject) => {
+        
+        query_string = `
+        delete from Retweets where tweet_id=${tweet_id} and user_id=${user_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function decrementTweetRetweet(tweet_id) {
+    return new Promise((resolve, reject) => {
+        
+        query_string = `
+        update Tweets set retweets=retweets-1 where tweet_id=${tweet_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function deleteImage(fileKey) {
+
+    params = {
+        Bucket: process.env.BUCKET_NAME,
+        Key: fileKey
+    }
+
+    return s3.deleteObject(params).promise()
+}
+
+function deleteOriginalTweet(tweet_id) {
+    return new Promise((resolve, reject) => {
+        
+        query_string = `
+        delete from Tweets where tweet_id=${tweet_id};
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
 module.exports = {
     AuthenticateToken: AuthenticateToken,
     queryInsertGenerator: queryInsertGenerator,
-    getImages: getImages
+    getImages: getImages,
+    addRetweet: addRetweet,
+    updateRetweetCounter: updateRetweetCounter,
+    insertTweet: insertTweet,
+    getTweetsWithEmail: getTweetsWithEmail,
+    getLikesForUser: getLikesForUser,
+    getRetweetsForUser: getRetweetsForUser,
+    incrementTweetLike: incrementTweetLike,
+    decrementTweetLike: decrementTweetLike,
+    insertLike: insertLike,
+    deleteLike: deleteLike,
+    deleteRetweetedTweet: deleteRetweetedTweet,
+    deleteRetweet: deleteRetweet,
+    decrementTweetRetweet: decrementTweetRetweet,
+    deleteImage: deleteImage,
+    deleteOriginalTweet: deleteOriginalTweet
 }

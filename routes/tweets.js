@@ -7,31 +7,25 @@ const s3 = require('../bucket_connection')
 const upload = require('../app')
 
 router.route('/:id').get(fun.AuthenticateToken, (req, res) => {
-    query_string = `
-    select T.*, U.email from Tweets T, Users U where U.user_id=T.user_id;
-    select tweet_id from Likes where user_id=${req.params.id};
-    select tweet_id from Retweets where user_id=${req.params.id};
-    `
 
-    db.query(query_string, async (err, results, fields) => {
-        if (err){
-            console.log(err)
-            return res.status(400).json(err)
-        }
+    promise_arr = []
 
-        //res.set('Content-Type', 'application/json')
-        //res.json(return_arr)
-        
-        console.log("Checking for images...")
-        let images = await fun.getImages(results[0])
-        images.index_arr.forEach((tweet_index, image_index) => {
-            results[0][tweet_index] = {...results[0][tweet_index], image: images.image_arr[image_index]}
+    promise_arr.push(fun.getTweetsWithEmail())
+    promise_arr.push(fun.getLikesForUser(req.params.id))
+    promise_arr.push(fun.getRetweetsForUser(req.params.id))
+
+    Promise.all(promise_arr)
+        .then(async(promise_res) => {
+            console.log("Checking for images...")
+            let images = await fun.getImages(promise_res[0])
+            images.index_arr.forEach((tweet_index, image_index) => {
+                promise_res[0][tweet_index] = {...promise_res[0][tweet_index], image: images.image_arr[image_index]}
+            })
+            console.log("Done getting images...")
+            
+            res.set('Content-Type', 'application/json')
+            res.json(promise_res)
         })
-        console.log("Done getting images...")
-        
-        res.set('Content-Type', 'application/json')
-        res.json(results)
-    })
 
 })
 
@@ -62,10 +56,10 @@ router.route('/add').post(fun.AuthenticateToken, (req, res) => {
     })
 })
 
-router.route('/delete/:id').delete(fun.AuthenticateToken, (req, res) => {
+router.route('/delete/:tweet_id/:user_id').delete(fun.AuthenticateToken, (req, res) => {
 
     query_string = `
-    delete from Tweets where tweet_id = ${req.params.id};
+    select sharedContent, fileKey, if(user_id = originalPoster, true, false ) as flag from Tweets where tweet_id=${req.params.tweet_id} and user_id=${req.params.user_id};
     `
 
     db.query(query_string, (err, results, fields) => {
@@ -73,9 +67,34 @@ router.route('/delete/:id').delete(fun.AuthenticateToken, (req, res) => {
             console.log(err)
             res.status(400).json(err)
         }
-
-        res.set('Content-Type', 'application/json')
-        res.json('Tweet Deleted!')
+        else {
+            console.log(results)
+            if (!results[0].flag) {
+                promise_arr = []
+                promise_arr.push(fun.deleteRetweetedTweet(req.params.tweet_id, req.params.user_id))
+                promise_arr.push(fun.deleteRetweet(req.params.tweet_id, req.params.user_id))
+                promise_arr.push(fun.decrementTweetRetweet(req.params.tweet_id))
+                Promise.all(promise_arr)
+                    .then(promise_res => {
+                        //console.log(promise_res)
+                        res.set('Content-Type', 'application/json')
+                        res.json('Retweeted Tweet Deleted!')
+                    })
+            }
+            else {
+                promise_arr = []
+                if (results[0].sharedContent === "Image" || results[0].sharedContent === "GIF"){
+                    promise_arr.push(fun.deleteImage(results[0].fileKey))
+                }
+                promise_arr.push(fun.deleteOriginalTweet(req.params.tweet_id))
+                Promise.all(promise_arr)
+                    .then(promise_res => {
+                        //console.log(promise_res)
+                        res.set('Content-Type', 'application/json')
+                        res.json('Original Tweet Deleted!')
+                    })
+            }
+        }
     })
 
 })
@@ -102,36 +121,29 @@ router.route('/like/add').put(fun.AuthenticateToken, (req, res) => {
             console.log(err)
             return res.status(400).json(err)
         }
-
-        if (results[0]['count(*)'] > 0) {
-            query_string = `
-            update Tweets set likes=likes-1 where tweet_id=${req.body.tweet_id};
-            delete from Likes where tweet_id=${req.body.tweet_id} and user_id=${req.body.user_id};
-            `
-
-            db.query(query_string, (err, results, fields) => {
-                if (err) {
-                    console.log(err)
-                    return res.status(400).json(err)
-                }
-            })
-            res.set('Content-Type', 'application/json')
-            res.json('Like Removed!') 
-        }
         else {
-            query_string = `
-            update Tweets set likes=likes+1 where tweet_id=${req.body.tweet_id};
-            ${fun.queryInsertGenerator(req.body, "Likes")}
-            `
-            console.log(query_string)
-            db.query(query_string, (err, results, fields) => {
-                if (err) {
-                    console.log(err)
-                    return res.status(400).json(err)
-                }
-            })
-            res.set('Content-Type', 'application/json')
-            res.json('Like Counted!') 
+            if (results[0]['count(*)'] > 0) {
+                promise_arr = []
+                promise_arr.push(fun.decrementTweetLike(req.body.tweet_id))
+                promise_arr.push(fun.deleteLike(req.body))
+                Promise.all(promise_arr)
+                    .then(promise_res => {
+                        console.log(promise_res)
+                        res.set('Content-Type', 'application/json')
+                        res.json('Like Removed!')
+                    })
+            }
+            else {
+                promise_arr = []
+                promise_arr.push(fun.incrementTweetLike(req.body.tweet_id))
+                promise_arr.push(fun.insertLike(req.body))
+                Promise.all(promise_arr)
+                    .then(promise_res => {
+                        console.log(promise_res)
+                        res.set('Content-Type', 'application/json')
+                        res.json('Like Added!')
+                    })
+            }
         }
     })
 
@@ -139,21 +151,22 @@ router.route('/like/add').put(fun.AuthenticateToken, (req, res) => {
 
 router.route('/retweet/add').post(fun.AuthenticateToken, (req, res) => {
 
-    query_string = `
-    ${fun.queryInsertGenerator(req.body.retweet, 'Retweets')}
-    update Tweets set retweets=retweets+1 where tweet_id=${req.body.retweet.tweet_id};
-    ${fun.queryInsertGenerator(req.body.tweet, 'Tweets')}
-    `
+    promise_arr = []
 
-    db.query(query_string, (err, results, fields) => {
-        if (err){
+    promise_arr.push(fun.addRetweet(req.body.retweet))
+    promise_arr.push(fun.updateRetweetCounter(req.body.retweet.tweet_id))
+    promise_arr.push(fun.insertTweet(req.body.tweet))
+
+    Promise.all(promise_arr)
+        .then(promise_res => {
+            console.log(promise_res)
+            res.set('Content-Type', 'application/json')
+            res.json(promise_res)
+        })
+        .catch(err => {
             console.log(err)
-            return res.status(400).json(err)
-        }
-
-        res.set('Content-Type', 'application/json')
-        res.json('Retweeted!')
-    })
+            res.status(400).json(err)
+        })
 
 })
 
