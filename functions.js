@@ -317,6 +317,36 @@ function deleteOriginalTweet(tweet_id) {
     })
 }
 
+function insertPoll(poll) {
+    return new Promise((resolve, reject) => {
+        query_string = `
+        ${queryInsertGenerator(poll, 'Polls')}
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
+function getPolls() {
+    return new Promise((resolve, reject) => {
+        query_string = `
+        select * from Polls
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
 module.exports = {
     AuthenticateToken: AuthenticateToken,
     queryInsertGenerator: queryInsertGenerator,
@@ -335,5 +365,7 @@ module.exports = {
     deleteRetweet: deleteRetweet,
     decrementTweetRetweet: decrementTweetRetweet,
     deleteImage: deleteImage,
-    deleteOriginalTweet: deleteOriginalTweet
+    deleteOriginalTweet: deleteOriginalTweet,
+    insertPoll: insertPoll,
+    getPolls: getPolls
 }
