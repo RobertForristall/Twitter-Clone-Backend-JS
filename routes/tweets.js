@@ -143,7 +143,7 @@ router.route('/like/add').put(fun.AuthenticateToken, (req, res) => {
         else {
             if (results[0]['count(*)'] > 0) {
                 promise_arr = []
-                promise_arr.push(fun.decrementTweetLike(req.body.tweet_id))
+                //promise_arr.push(fun.decrementTweetLike(req.body.tweet_id))
                 promise_arr.push(fun.deleteLike(req.body))
                 Promise.all(promise_arr)
                     .then(promise_res => {
@@ -154,7 +154,7 @@ router.route('/like/add').put(fun.AuthenticateToken, (req, res) => {
             }
             else {
                 promise_arr = []
-                promise_arr.push(fun.incrementTweetLike(req.body.tweet_id))
+                //promise_arr.push(fun.incrementTweetLike(req.body.tweet_id))
                 promise_arr.push(fun.insertLike(req.body))
                 Promise.all(promise_arr)
                     .then(promise_res => {
@@ -173,8 +173,19 @@ router.route('/retweet/add').post(fun.AuthenticateToken, (req, res) => {
     promise_arr = []
 
     promise_arr.push(fun.addRetweet(req.body.retweet))
-    promise_arr.push(fun.updateRetweetCounter(req.body.retweet.tweet_id))
-    promise_arr.push(fun.insertTweet(req.body.tweet))
+    //promise_arr.push(fun.updateRetweetCounter(req.body.retweet.tweet_id))
+    retweeted_tweet = {
+        tweet_id: req.body.tweet.tweet_id,
+        user_id: req.body.tweet.user_id,
+        msg: req.body.tweet.msg,
+        sharedContent: req.body.tweet.sharedContent,
+        likes: req.body.tweet.likes,
+        retweets: req.body.tweet.retweets,
+        datePosted: req.body.tweet.datePosted,
+        originalPoster: req.body.tweet.originalPoster,
+        fileKey: req.body.tweet.fileKey
+    }
+    promise_arr.push(fun.insertTweet(retweeted_tweet))
 
     Promise.all(promise_arr)
         .then(promise_res => {
@@ -207,7 +218,7 @@ router.route('/image/add').post(fun.AuthenticateToken,  (req, res) => {
     })
 })
 
-router.route('image/delete/:id/:file_name').delete(fun.AuthenticateToken, (req, res) => {
+router.route('/image/delete/:id/:file_name').delete(fun.AuthenticateToken, (req, res) => {
 
     params = {
         Bucket: process.env.BUCKET_NAME,
@@ -222,6 +233,24 @@ router.route('image/delete/:id/:file_name').delete(fun.AuthenticateToken, (req, 
             res.json('Image deleted')
         }
     })
+
+})
+
+router.route('/poll').post(fun.AuthenticateToken, (req, res) => {
+
+    promise_arr = []
+
+    promise_arr.push(fun.insertPollResult(req.body))
+
+    Promise.all(promise_arr)
+        .then(promise_res => {
+            res.set('Content-Type', 'application/json')
+            res.json(promise_res)
+        })
+        .catch(err => {
+            console.log(err)
+            return res.status(400).json(err)
+        })
 
 })
 

@@ -332,29 +332,14 @@ function insertSharedContent(content) {
     })
 }
 
-function insertPoll(poll) {
+function insertPollResult(poll_res) {
     return new Promise((resolve, reject) => {
-        query_string = `
-        ${queryInsertGenerator(poll, 'Polls')}
+        query_string=`
+        ${queryInsertGenerator(poll_res, 'PollResults')}
         `
 
         db.query(query_string, (err, results, fields) => {
-            if (err){
-                return reject(err)
-            }
-            resolve(results)
-        })
-    })
-}
-
-function getPolls() {
-    return new Promise((resolve, reject) => {
-        query_string = `
-        select * from Polls
-        `
-
-        db.query(query_string, (err, results, fields) => {
-            if (err){
+            if (err) {
                 return reject(err)
             }
             resolve(results)
@@ -381,7 +366,6 @@ module.exports = {
     decrementTweetRetweet: decrementTweetRetweet,
     deleteImage: deleteImage,
     deleteOriginalTweet: deleteOriginalTweet,
-    insertSharedContent, insertSharedContent,
-    insertPoll: insertPoll,
-    getPolls: getPolls
+    insertSharedContent: insertSharedContent,
+    insertPollResult: insertPollResult,
 }
