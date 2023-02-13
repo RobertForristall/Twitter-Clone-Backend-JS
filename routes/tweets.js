@@ -13,22 +13,20 @@ router.route('/:id').get(fun.AuthenticateToken, (req, res) => {
     promise_arr.push(fun.getTweetsWithEmail())
     promise_arr.push(fun.getLikesForUser(req.params.id))
     promise_arr.push(fun.getRetweetsForUser(req.params.id))
-    promise_arr.push(fun.getPolls())
 
     Promise.all(promise_arr)
         .then(async(promise_res) => {
             console.log("Checking for images...")
             let images = await fun.getImages(promise_res[0])
-            let polls = {}
             images.index_arr.forEach((tweet_index, image_index) => {
                 promise_res[0][tweet_index] = {...promise_res[0][tweet_index], image: images.image_arr[image_index]}
             })
-            console.log("Done getting images...")
-            promise_res[3].forEach(poll => {
-                poll.choice_arr = [poll.c_1, poll.c_2, poll.c_3, poll.c_4, poll.c_5, poll.c_6]
-                polls[poll.tweet_id] = poll
+            promise_res[0].forEach((tweet, index) => {
+                if (tweet.sharedContent === 'Poll'){
+                    promise_res[0][index].choice_arr = [tweet.c_1, tweet.c_2, tweet.c_3, tweet.c_4, tweet.c_5, tweet.c_6]
+                }
             })
-            promise_res[3] = polls
+            console.log("Done getting images...")
             
             res.set('Content-Type', 'application/json')
             res.json(promise_res)
@@ -57,9 +55,10 @@ router.route('/add').post(fun.AuthenticateToken, (req, res) => {
         .then(promise_res_1 => {
             console.log(promise_res_1[0])
             promise_arr = []
-            if (req.body.tweet.sharedContent === 'Poll') {
-                promise_arr.push(fun.insertPoll({...req.body.poll, tweet_id: promise_res_1[0]["insertId"]}))
+            if (req.body.tweet.sharedContent === 'Poll' || req.body.tweet.sharedContent === 'Date' || req.body.tweet.sharedContent === 'Location') {
+                promise_arr.push(fun.insertSharedContent({...req.body.sharedContent, tweet_id: promise_res_1[0]["insertId"]}))
             }
+            else promise_arr.push(fun.insertSharedContent({tweet_id: promise_res_1[0]["insertId"]}))
             Promise.all(promise_arr)
                 .then(promise_res_2 => {
                     res.set('Content-Type', 'application/json')

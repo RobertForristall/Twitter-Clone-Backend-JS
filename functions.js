@@ -137,7 +137,7 @@ function getTweetsWithEmail() {
 
     return new Promise((resolve, reject) => {
         query_string = `
-        select T.*, U.email from Tweets T, Users U where U.user_id=T.user_id;
+        select T.*, U.email, S.* from Users U join Tweets T on T.user_id=U.user_id join SharedContent S on T.tweet_id=S.tweet_id;
         `
 
         db.query(query_string, (err, results, fields) => {
@@ -317,6 +317,21 @@ function deleteOriginalTweet(tweet_id) {
     })
 }
 
+function insertSharedContent(content) {
+    return new Promise((resolve, reject) => {
+        query_string=`
+        ${queryInsertGenerator(content, 'SharedContent')}
+        `
+
+        db.query(query_string, (err, results, fields) => {
+            if (err){
+                return reject(err)
+            }
+            resolve(results)
+        })
+    })
+}
+
 function insertPoll(poll) {
     return new Promise((resolve, reject) => {
         query_string = `
@@ -366,6 +381,7 @@ module.exports = {
     decrementTweetRetweet: decrementTweetRetweet,
     deleteImage: deleteImage,
     deleteOriginalTweet: deleteOriginalTweet,
+    insertSharedContent, insertSharedContent,
     insertPoll: insertPoll,
     getPolls: getPolls
 }
